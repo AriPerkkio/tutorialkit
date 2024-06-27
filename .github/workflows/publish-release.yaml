@@ -1,0 +1,62 @@
+name: Publish release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Debug only
+
+jobs:
+  publish_release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    if: ${{ contains(github.event.head_commit.message, 'bump @tutorialkit') || (github.event_name == 'workflow_dispatch') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup
+        uses: pnpm/action-setup@v4
+
+      - name: Install & Build
+        run: |
+          pnpm install
+          pnpm build
+
+      # Read "version" of "@tutorialkit/astro" to "steps.resolve-release-version.outputs.PACKAGE_VERSION"
+      - name: Resolve release version
+        id: resolve-release-version
+        shell: bash
+        run: >
+          echo "$(
+            node -e "
+              const fs = require('fs');
+              const pkg = fs.readFileSync('./packages/astro/package.json', 'utf8');
+              const version = JSON.parse(pkg).version
+              console.log('PACKAGE_VERSION=' + version);
+            "
+          )" >> $GITHUB_OUTPUT
+
+      - name: Create and push git tag
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@users.noreply.github.com'
+      #   TODO: Remove, this works OK
+      #   git tag ${{ steps.resolve-release-version.outputs.PACKAGE_VERSION }}
+      #   git push origin ${{ steps.resolve-release-version.outputs.PACKAGE_VERSION }}
+
+      # TODO: Remove --dry-run
+      - name: Publish to npm
+        run: >
+          pnpm --recursive
+          --filter "@tutorialkit/*"
+          --filter create-tutorial
+          exec pnpm publish --provenance --dry-run
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
