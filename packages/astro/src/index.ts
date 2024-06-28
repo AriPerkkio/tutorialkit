@@ -11,7 +11,7 @@ export { theme } from './theme.js';
 
 export interface Options {
   /**
-   * Whether or not default routes are injected.
+   * Whether or not default routes are injected. Some change.
    *
    * Set this to false to customize the pages.
    *
