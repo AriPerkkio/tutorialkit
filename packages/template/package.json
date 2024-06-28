@@ -11,7 +11,7 @@
     "start": "astro dev"
   },
   "dependencies": {
-    "@tutorialkit/components-react": "workspace:*",
+    "@tutorialkit/components-react": "0.0.1-alpha.23",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -20,8 +20,8 @@
     "@astrojs/react": "^3.6.0",
     "@iconify-json/ph": "^1.1.13",
     "@iconify-json/svg-spinners": "^1.1.2",
-    "@tutorialkit/astro": "workspace:*",
-    "@tutorialkit/types": "workspace:*",
+    "@tutorialkit/astro": "0.0.1-alpha.23",
+    "@tutorialkit/types": "0.0.1-alpha.23",
     "@types/node": "^20.14.6",
     "@types/react": "^18.3.3",
     "@unocss/reset": "^0.59.4",
