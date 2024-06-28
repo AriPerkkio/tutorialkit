@@ -19,8 +19,26 @@ jobs:
 
       - uses: ./.github/actions/setup-and-build
 
-      # Sets steps.resolve-release-version.outputs.version
-      - uses: ./.github/actions/resolve-release-version
+      # Read "version" of "@tutorialkit/astro" to "steps.resolve-release-version.outputs.PACKAGE_VERSION"
+      - name: Resolve release version
+        id: resolve-release-version
+        shell: bash
+        run: >
+          echo "$(
+            node -e "
+              const fs = require('fs');
+              const pkg = fs.readFileSync('./packages/astro/package.json', 'utf8');
+              const version = JSON.parse(pkg).version
+              console.log('PACKAGE_VERSION=' + version);
+            "
+          )" >> $GITHUB_OUTPUT
+
+      - name: Create and push git tag
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@users.noreply.github.com'
+          git tag ${{ steps.resolve-release-version.outputs.PACKAGE_VERSION }}
+          git push origin ${{ steps.resolve-release-version.outputs.PACKAGE_VERSION }}
 
       # TODO: Remove --dry-run
       - name: Publish to npm
