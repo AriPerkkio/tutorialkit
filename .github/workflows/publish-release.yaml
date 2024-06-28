@@ -38,9 +38,8 @@ jobs:
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@users.noreply.github.com'
-      #   TODO: Remove, this works OK
-      #   git tag ${{ steps.resolve-release-version.outputs.PACKAGE_VERSION }}
-      #   git push origin ${{ steps.resolve-release-version.outputs.PACKAGE_VERSION }}
+          git tag ${{ steps.resolve-release-version.outputs.PACKAGE_VERSION }}
+          git push origin ${{ steps.resolve-release-version.outputs.PACKAGE_VERSION }}
 
       # TODO: Remove --dry-run
       - name: Publish to npm
