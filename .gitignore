@@ -18,7 +18,10 @@ dist-ssr
 *.sln
 *.sw?
 .pnpm-store
-/tutorialkit/template
+/packages/cli/template/**
+!/packages/cli/template/pnpm-lock.yaml
+!/packages/cli/template/package-lock.json
+!/packages/cli/template/yarn.lock
 tsconfig.tsbuildinfo
 tsconfig.build.tsbuildinfo
 .tmp
