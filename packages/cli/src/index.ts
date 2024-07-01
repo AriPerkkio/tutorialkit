@@ -6,6 +6,8 @@ import { createTutorial } from './commands/create/index.js';
 import { pkg } from './pkg.js';
 import { errorLabel, primaryLabel, printHelp } from './utils/messages.js';
 
+// some change to trigger changelogs
+
 type CLICommand = 'version' | 'help' | 'create';
 
 const supportedCommands = new Set(['version', 'help', 'create']);
