@@ -2,14 +2,12 @@ name: Integration Tests CLI
 
 on:
   pull_request:
-    branches:
-      - main
 
 jobs:
   cli-integration-test:
     name: CLI Integration Tests
     # Note: `prepare-release.yaml` sets this commit message
-    if: ${{ contains(github.event.head_commit.message, 'release tutorialkit CLI') }}
+    if: ${{ contains(github.event.pull_request.title, 'release tutorialkit CLI') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
