@@ -4,21 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish'
+        description: 'Version to publish, e.g. 0.0.1'
         required: true
-        default: patch
+        default: '0.0.1'
         type: string
-      release-type:
-        type: choice
-        description: Packages
-        options:
-          - '@tutorialkit/* and create-tutorial'
-          - tutorialkit CLI
+
+  # CLI release PRs are done after other packages have been released
+  push:
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
   prepare_release:
     name: Prepare release PR
-    if: ${{ contains(inputs.release-type, 'create-tutorial') }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -53,7 +52,7 @@ jobs:
 
   prepare_release_CLI:
     name: Prepare release PR CLI
-    if: ${{ contains(inputs.release-type, 'tutorialkit CLI') }}
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -63,20 +62,14 @@ jobs:
 
       - uses: ./.github/actions/setup-and-build
 
+      # Sets steps.resolve-release-version.outputs.version
+      - uses: ./.github/actions/resolve-release-version
+
       - name: Bump version
         run: >
           pnpm --recursive
           --filter tutorialkit
-          exec npm version --no-git-tag-version --allow-same-version ${{ inputs.version }}
-
-      # Run integration tests for CLI before making the release PR.
-      # We'll re-run these tests just in case before actual release publishing.
-      - name: Pre Tests
-        run: |
-          cd packages/cli
-          pnpm update-template
-          cd ../../integration
-          pnpm test
+          exec npm version --no-git-tag-version --allow-same-version ${{ steps.resolve-release-version.outputs.version }}
 
       - name: Generage changelog
         run: |
