@@ -4,21 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish'
+        description: 'Version to publish, e.g. 0.0.1'
         required: true
-        default: patch
+        default: '0.0.1'
         type: string
-      release-type:
-        type: choice
-        description: Packages
-        options:
-          - '@tutorialkit/* and create-tutorial'
-          - tutorialkit CLI
+
+  # CLI release PRs are done after other packages have been released
+  workflow_run:
+    workflows: [Publish release]
+    types:
+      - completed
 
 jobs:
   prepare_release:
     name: Prepare release PR
-    if: ${{ contains(inputs.release-type, 'create-tutorial') }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -53,7 +53,7 @@ jobs:
 
   prepare_release_CLI:
     name: Prepare release PR CLI
-    if: ${{ contains(inputs.release-type, 'tutorialkit CLI') }}
+    if: ${{ github.event_name == 'workflow_run' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -63,20 +63,15 @@ jobs:
 
       - uses: ./.github/actions/setup-and-build
 
+      # Sets steps.resolve-release-version.outputs.version
+      - uses: ./.github/actions/resolve-release-version
+        id: resolve-release-version
+
       - name: Bump version
         run: >
           pnpm --recursive
           --filter tutorialkit
-          exec npm version --no-git-tag-version --allow-same-version ${{ inputs.version }}
-
-      # Run integration tests for CLI before making the release PR.
-      # We'll re-run these tests just in case before actual release publishing.
-      - name: Pre Tests
-        run: |
-          cd packages/cli
-          pnpm update-template
-          cd ../../integration
-          pnpm test
+          exec npm version --no-git-tag-version --allow-same-version ${{ steps.resolve-release-version.outputs.version }}
 
       - name: Generage changelog
         run: |
@@ -89,9 +84,9 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           # Note: `publish-release.yaml` checks explicitly for this commit message
-          commit-message: 'chore: release tutorialkit CLI, version: ${{ inputs.version }}'
-          title: 'chore: release tutorialkit CLI, version: ${{ inputs.version }}'
-          body: 'Bump tutorialkit CLI to version ${{ inputs.version }} and generate changelog'
+          commit-message: 'chore: release tutorialkit CLI, version: ${{ steps.resolve-release-version.outputs.version }}'
+          title: 'chore: release tutorialkit CLI, version: ${{ steps.resolve-release-version.outputs.version }}'
+          body: 'Bump tutorialkit CLI to version ${{ steps.resolve-release-version.outputs.version }} and generate changelog'
           #reviewers: SamVerschueren,d3lm,Nemikolh,AriPerkkio
           reviewers: AriPerkkio
-          branch: chore/release-cli-${{ inputs.version }}
+          branch: chore/release-cli-${{ steps.resolve-release-version.outputs.version }}
