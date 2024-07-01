@@ -9,12 +9,6 @@ on:
         default: '0.0.1'
         type: string
 
-  # CLI release PRs are done after other packages have been released
-  workflow_run:
-    workflows: [Publish release]
-    types:
-      - completed
-
 jobs:
   prepare_release:
     name: Prepare release PR
@@ -50,43 +44,3 @@ jobs:
           #reviewers: SamVerschueren,d3lm,Nemikolh,AriPerkkio
           reviewers: AriPerkkio
           branch: chore/release-${{ inputs.version }}
-
-  prepare_release_CLI:
-    name: Prepare release PR CLI
-    if: ${{ github.event_name == 'workflow_run' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: ./.github/actions/setup-and-build
-
-      # Sets steps.resolve-release-version.outputs.version
-      - uses: ./.github/actions/resolve-release-version
-        id: resolve-release-version
-
-      - name: Bump version
-        run: >
-          pnpm --recursive
-          --filter tutorialkit
-          exec npm version --no-git-tag-version --allow-same-version ${{ steps.resolve-release-version.outputs.version }}
-
-      - name: Generage changelog
-        run: |
-          pnpm run changelog
-          git add ./packages/cli ./packages/template
-          git checkout ./packages
-          git checkout CHANGELOG.md
-
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v6
-        with:
-          # Note: `publish-release.yaml` checks explicitly for this commit message
-          commit-message: 'chore: release tutorialkit CLI, version: ${{ steps.resolve-release-version.outputs.version }}'
-          title: 'chore: release tutorialkit CLI, version: ${{ steps.resolve-release-version.outputs.version }}'
-          body: 'Bump tutorialkit CLI to version ${{ steps.resolve-release-version.outputs.version }} and generate changelog'
-          #reviewers: SamVerschueren,d3lm,Nemikolh,AriPerkkio
-          reviewers: AriPerkkio
-          branch: chore/release-cli-${{ steps.resolve-release-version.outputs.version }}
