@@ -37,5 +37,5 @@ jobs:
           commit-message: 'chore: release @tutorialkit packages, version: ${{ inputs.version }}'
           title: 'chore: release @tutorialkit packages, version: ${{ inputs.version }}'
           body: 'Bump packages to version ${{ inputs.version }} and generate changelogs'
-          reviewers: SamVerschueren,d3lm,Nemikolh,AriPerkkio
+          reviewers: AriPerkkio
           branch: chore/release-${{ inputs.version }}

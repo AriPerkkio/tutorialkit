@@ -30,9 +30,9 @@ jobs:
         run: >
           pnpm --recursive
           --filter "@tutorialkit/*"
-          exec pnpm publish --provenance
+          exec pnpm publish --provenance --dry-run
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: nope
 
       - name: Create and push git tag
         run: |
@@ -71,7 +71,7 @@ jobs:
           commit-message: 'chore: release tutorialkit CLI, version: ${{ steps.resolve-release-version.outputs.version }}'
           title: 'chore: release tutorialkit CLI, version: ${{ steps.resolve-release-version.outputs.version }}'
           body: 'Bump tutorialkit CLI to version ${{ steps.resolve-release-version.outputs.version }}'
-          reviewers: SamVerschueren,d3lm,Nemikolh,AriPerkkio
+          reviewers: AriPerkkio
           branch: chore/release-cli-${{ steps.resolve-release-version.outputs.version }}
 
   publish_release_CLI:
@@ -103,6 +103,6 @@ jobs:
           pnpm --recursive
           --filter tutorialkit
           --filter create-tutorial
-          exec pnpm publish --provenance
+          exec pnpm publish --provenance --dry-run
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: nope
