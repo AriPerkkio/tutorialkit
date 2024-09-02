@@ -2,15 +2,14 @@
 type: lesson
 title: Foo from part 1
 slug: foo
-focus: /src/index.html
+template: example
+focus: /index.html
+autoReload: true
+prepareCommands: []
+mainCommand: "node index.mjs"
 previews:
-  - { title: 'Main Page', port: 8080, pathname: '/src'}
-  - [1, 'Test Runner']
-  - '2/some/custom/pathname'
-  - '2/another/pathname'
-terminal:
-  panels: 'terminal'
-editPageLink: 'https://tutorialkit.dev'
+  - port: 1
+    title: "Server"
 ---
 
 # Foo
