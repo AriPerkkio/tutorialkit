@@ -89,6 +89,7 @@ function EditorSection({ theme, tutorialStore, hasEditor }: PanelProps) {
   const selectedFile = useStore(tutorialStore.selectedFile);
   const currentDocument = useStore(tutorialStore.currentDocument);
   const lessonFullyLoaded = useStore(tutorialStore.lessonFullyLoaded);
+  const files = useStore(tutorialStore.files);
 
   const lesson = tutorialStore.lesson!;
 
@@ -132,7 +133,7 @@ function EditorSection({ theme, tutorialStore, hasEditor }: PanelProps) {
         theme={theme}
         showFileTree={tutorialStore.hasFileTree()}
         editorDocument={currentDocument}
-        files={lesson.files[1]}
+        files={files}
         i18n={lesson.data.i18n as I18n}
         hideRoot={lesson.data.hideRoot}
         helpAction={helpAction}
