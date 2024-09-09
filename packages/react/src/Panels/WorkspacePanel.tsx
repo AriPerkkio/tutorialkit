@@ -1,7 +1,7 @@
 import { useStore } from '@nanostores/react';
 import { TutorialStore } from '@tutorialkit/runtime';
 import type { I18n } from '@tutorialkit/types';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels';
 import type { Theme } from '../core/types.js';
 import resizePanelStyles from '../styles/resize-panel.module.css';
@@ -11,6 +11,8 @@ import { PreviewPanel, type ImperativePreviewHandle } from './PreviewPanel.js';
 import { TerminalPanel } from './TerminalPanel.js';
 
 const DEFAULT_TERMINAL_SIZE = 25;
+
+type FileTreeChangeEvent = Parameters<NonNullable<ComponentProps<typeof EditorPanel>['onFileTreeChange']>>[0];
 
 interface Props {
   tutorialStore: TutorialStore;
@@ -111,6 +113,16 @@ function EditorSection({ theme, tutorialStore, hasEditor }: PanelProps) {
     }
   }
 
+  function onFileTreeChange({ method, type, value }: FileTreeChangeEvent) {
+    if (method == 'ADD' && type === 'FILE') {
+      return tutorialStore.addFile(value);
+    }
+
+    if (method == 'ADD' && type === 'DIRECTORY') {
+      return tutorialStore.addFolder(value);
+    }
+  }
+
   useEffect(() => {
     if (tutorialStore.hasSolution()) {
       setHelpAction('solve');
@@ -139,6 +151,7 @@ function EditorSection({ theme, tutorialStore, hasEditor }: PanelProps) {
         helpAction={helpAction}
         onHelpClick={lessonFullyLoaded ? onHelpClick : undefined}
         onFileSelect={(filePath) => tutorialStore.setSelectedFile(filePath)}
+        onFileTreeChange={onFileTreeChange}
         selectedFile={selectedFile}
         onEditorScroll={(position) => tutorialStore.setCurrentDocumentScrollPosition(position)}
         onEditorChange={(update) => tutorialStore.setCurrentDocumentContent(update.content)}
