@@ -4,6 +4,10 @@ title: Bar
 slug: bar
 focus: /src/index.html
 previews: [1]
+terminal:
+  open: true
+  activePanel: 1
+  panels: [output, terminal]
 i18n:
   startWebContainerText: 'Foobar'
 ---

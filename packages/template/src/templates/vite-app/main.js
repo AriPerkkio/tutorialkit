@@ -22,3 +22,5 @@ document.querySelector('#app').innerHTML = `
 `;
 
 setupCounter(document.querySelector('#counter'));
+
+await import('./new-file.js').catch(console.error);
