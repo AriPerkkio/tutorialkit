@@ -37,14 +37,6 @@
       "id": "1-lesson",
       "filepath": "1-part/1-chapter/1-lesson/content.md",
       "order": 0,
-      "part": {
-        "id": "1-part",
-        "title": "Basics"
-      },
-      "chapter": {
-        "id": "1-chapter",
-        "title": "The first chapter in part 1"
-      },
       "Markdown": "Markdown for tutorial",
       "slug": "lesson-slug",
       "files": [
@@ -54,7 +46,15 @@
       "solution": [
         "1-part-1-chapter-1-lesson-solution.json",
         []
-      ]
+      ],
+      "part": {
+        "id": "1-part",
+        "title": "Basics"
+      },
+      "chapter": {
+        "id": "1-chapter",
+        "title": "The first chapter in part 1"
+      }
     }
   ],
   "firstPartId": "1-part"

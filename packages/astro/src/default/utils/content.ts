@@ -19,106 +19,43 @@ import { joinPaths } from './url';
 export async function getTutorial(): Promise<Tutorial> {
   const collection = sortCollection(await getCollection('tutorial'));
 
-  const _tutorial: Tutorial = {
-    parts: {},
-    lessons: [],
-  };
+  const { tutorial, tutorialMetaData } = await parseCollection(collection);
 
-  let tutorialMetaData: TutorialSchema | undefined;
+  // verify that parts and lessons are not mixed in tutorial
+  if (Object.keys(tutorial.parts).length !== 0 && tutorial.lessons.some((lesson) => !lesson.part)) {
+    throw new Error(
+      'Cannot mix lessons and parts in a tutorial. Either remove the parts or move root level lessons into a part.',
+    );
+  }
 
-  for (const entry of collection) {
-    const { id, data } = entry;
-    const { type } = data;
+  // verify that chapters and lessons are not mixed in a single part
+  for (const part of Object.values(tutorial.parts)) {
+    if (Object.keys(part.chapters).length === 0) {
+      continue;
+    }
 
-    const [partId, chapterId, lessonId] = id.split('/');
-
-    if (type === 'tutorial') {
-      tutorialMetaData = data;
-
-      // default template if not specified
-      tutorialMetaData.template ??= 'default';
-      tutorialMetaData.i18n = Object.assign({ ...DEFAULT_LOCALIZATION }, tutorialMetaData.i18n);
-      tutorialMetaData.openInStackBlitz ??= true;
-
-      _tutorial.logoLink = data.logoLink;
-    } else if (type === 'part') {
-      _tutorial.parts[partId] = {
-        id: partId,
-        order: -1,
-        data,
-        slug: getSlug(entry),
-        chapters: {},
-      };
-    } else if (type === 'chapter') {
-      if (!_tutorial.parts[partId]) {
-        throw new Error(`Could not find part '${partId}'`);
-      }
-
-      _tutorial.parts[partId].chapters[chapterId] = {
-        id: chapterId,
-        order: -1,
-        data,
-        slug: getSlug(entry),
-      };
-    } else if (type === 'lesson') {
-      if (!_tutorial.parts[partId]) {
-        throw new Error(`Could not find part '${partId}'`);
-      }
-
-      if (!_tutorial.parts[partId].chapters[chapterId]) {
-        throw new Error(`Could not find chapter '${chapterId}'`);
-      }
-
-      const { Content } = await entry.render();
-
-      const lessonDir = path.dirname(entry.id);
-      const filesDir = path.join(lessonDir, '_files');
-      const solutionDir = path.join(lessonDir, '_solution');
-
-      const files = await getFilesRefList(filesDir);
-      const solution = await getFilesRefList(solutionDir);
-
-      const lesson: Lesson = {
-        data,
-        id: lessonId,
-        filepath: id,
-        order: -1,
-        part: {
-          id: partId,
-          title: _tutorial.parts[partId].data.title,
-        },
-        chapter: {
-          id: chapterId,
-          title: _tutorial.parts[partId].chapters[chapterId].data.title,
-        },
-        Markdown: Content,
-        slug: getSlug(entry),
-        files,
-        solution,
-      };
-
-      _tutorial.lessons.push(lesson);
+    if (tutorial.lessons.some((lesson) => lesson.part?.id === part.id && !lesson.chapter)) {
+      throw new Error(
+        `Cannot mix lessons and chapters in a part. Either remove the chapter from ${part.id} or move the lessons into a chapter.`,
+      );
     }
   }
 
-  if (!tutorialMetaData) {
-    throw new Error(`Could not find tutorial 'meta.md' file`);
-  }
-
   // let's now compute the order for everything
-  const partsOrder = getOrder(tutorialMetaData.parts, _tutorial.parts);
+  const partsOrder = getOrder(tutorialMetaData.parts, tutorial.parts);
 
+  // TODO: Rewrite this
   for (let p = 0; p < partsOrder.length; ++p) {
     const partId = partsOrder[p];
-    const part = _tutorial.parts[partId];
+    const part = tutorial.parts[partId];
 
     if (!part) {
       logger.warn(`Could not find part '${partId}', it won't be part of the tutorial.`);
       continue;
     }
 
-    if (!_tutorial.firstPartId) {
-      _tutorial.firstPartId = partId;
+    if (!tutorial.firstPartId) {
+      tutorial.firstPartId = partId;
     }
 
     part.order = p;
@@ -140,7 +77,7 @@ export async function getTutorial(): Promise<Tutorial> {
 
       chapter.order = c;
 
-      const chapterLessons = _tutorial.lessons.filter((l) => l.part.id === partId && l.chapter.id === chapterId);
+      const chapterLessons = tutorial.lessons.filter((l) => l.part?.id === partId && l.chapter?.id === chapterId);
       const lessonOrder = getOrder(
         chapter.data.lessons,
         chapterLessons.map((l) => l.id),
@@ -165,11 +102,11 @@ export async function getTutorial(): Promise<Tutorial> {
   }
 
   // find orphans discard them and print warnings
-  for (const partId in _tutorial.parts) {
-    const part = _tutorial.parts[partId];
+  for (const partId in tutorial.parts) {
+    const part = tutorial.parts[partId];
 
     if (part.order === -1) {
-      delete _tutorial.parts[partId];
+      delete tutorial.parts[partId];
       logger.warn(
         `An order was specified for the parts of the tutorial but '${partId}' is not included so it won't be visible.`,
       );
@@ -187,7 +124,7 @@ export async function getTutorial(): Promise<Tutorial> {
         continue;
       }
 
-      const chapterLessons = _tutorial.lessons.filter((l) => l.chapter.id === chapterId);
+      const chapterLessons = tutorial.lessons.filter((l) => l.chapter?.id === chapterId);
 
       for (const lesson of chapterLessons) {
         if (lesson.order === -1) {
@@ -201,23 +138,32 @@ export async function getTutorial(): Promise<Tutorial> {
   }
 
   // removed orphaned lessons
-  _tutorial.lessons = _tutorial.lessons.filter(
-    (lesson) =>
-      lesson.order !== -1 &&
-      _tutorial.parts[lesson.part.id].order !== -1 &&
-      _tutorial.parts[lesson.part.id].chapters[lesson.chapter.id].order !== -1,
-  );
+  tutorial.lessons = tutorial.lessons.filter((lesson) => {
+    if (lesson.order === -1) {
+      return false;
+    }
+
+    if (lesson.part && tutorial.parts[lesson.part.id].order === -1) {
+      return false;
+    }
+
+    if (lesson.part && lesson.chapter && tutorial.parts[lesson.part.id].chapters[lesson.chapter.id].order === -1) {
+      return false;
+    }
+
+    return true;
+  });
 
   // sort lessons
-  _tutorial.lessons.sort((a, b) => {
+  tutorial.lessons.sort((a, b) => {
     const partsA = [
-      _tutorial.parts[a.part.id].order,
-      _tutorial.parts[a.part.id].chapters[a.chapter.id].order,
+      a.part ? tutorial.parts[a.part.id].order : a.order,
+      a.part && a.chapter ? tutorial.parts[a.part.id].chapters[a.chapter.id].order : a.order,
       a.order,
     ] as const;
     const partsB = [
-      _tutorial.parts[b.part.id].order,
-      _tutorial.parts[b.part.id].chapters[b.chapter.id].order,
+      b.part ? tutorial.parts[b.part.id].order : b.order,
+      b.part && b.chapter ? tutorial.parts[b.part.id].chapters[b.chapter.id].order : b.order,
       b.order,
     ] as const;
 
@@ -233,38 +179,44 @@ export async function getTutorial(): Promise<Tutorial> {
   const baseURL = import.meta.env.BASE_URL;
 
   // now we link all lessons together
-  for (const [i, lesson] of _tutorial.lessons.entries()) {
-    const prevLesson = i > 0 ? _tutorial.lessons.at(i - 1) : undefined;
-    const nextLesson = _tutorial.lessons.at(i + 1);
+  for (const [i, lesson] of tutorial.lessons.entries()) {
+    const prevLesson = i > 0 ? tutorial.lessons.at(i - 1) : undefined;
+    const nextLesson = tutorial.lessons.at(i + 1);
 
-    const partMetadata = _tutorial.parts[lesson.part.id].data;
-    const chapterMetadata = _tutorial.parts[lesson.part.id].chapters[lesson.chapter.id].data;
+    const sources: (Lesson['data'] | Chapter['data'] | Part['data'] | TutorialSchema)[] = [lesson.data];
+
+    if (lesson.part && lesson.chapter) {
+      sources.push(tutorial.parts[lesson.part.id].chapters[lesson.chapter.id].data);
+    }
+
+    if (lesson.part) {
+      sources.push(tutorial.parts[lesson.part.id].data);
+    }
+
+    sources.push(tutorialMetaData);
 
     lesson.data = {
       ...lesson.data,
-      ...squash(
-        [lesson.data, chapterMetadata, partMetadata, tutorialMetaData],
-        [
-          'mainCommand',
-          'prepareCommands',
-          'previews',
-          'autoReload',
-          'template',
-          'terminal',
-          'editor',
-          'focus',
-          'i18n',
-          'meta',
-          'editPageLink',
-          'openInStackBlitz',
-          'filesystem',
-        ],
-      ),
+      ...squash(sources, [
+        'mainCommand',
+        'prepareCommands',
+        'previews',
+        'autoReload',
+        'template',
+        'terminal',
+        'editor',
+        'focus',
+        'i18n',
+        'meta',
+        'editPageLink',
+        'openInStackBlitz',
+        'filesystem',
+      ]),
     };
 
     if (prevLesson) {
-      const partSlug = _tutorial.parts[prevLesson.part.id].slug;
-      const chapterSlug = _tutorial.parts[prevLesson.part.id].chapters[prevLesson.chapter.id].slug;
+      const partSlug = tutorial.parts[prevLesson.part.id].slug;
+      const chapterSlug = tutorial.parts[prevLesson.part.id].chapters[prevLesson.chapter.id].slug;
 
       lesson.prev = {
         title: prevLesson.data.title,
@@ -273,8 +225,8 @@ export async function getTutorial(): Promise<Tutorial> {
     }
 
     if (nextLesson) {
-      const partSlug = _tutorial.parts[nextLesson.part.id].slug;
-      const chapterSlug = _tutorial.parts[nextLesson.part.id].chapters[nextLesson.chapter.id].slug;
+      const partSlug = tutorial.parts[nextLesson.part.id].slug;
+      const chapterSlug = tutorial.parts[nextLesson.part.id].chapters[nextLesson.chapter.id].slug;
 
       lesson.next = {
         title: nextLesson.data.title,
@@ -287,7 +239,115 @@ export async function getTutorial(): Promise<Tutorial> {
     }
   }
 
-  return _tutorial;
+  return tutorial;
+}
+
+async function parseCollection(collection: CollectionEntryTutorial[]) {
+  const tutorial: Tutorial = {
+    parts: {},
+    lessons: [],
+  };
+
+  let tutorialMetaData: TutorialSchema | undefined;
+
+  for (const entry of collection) {
+    const { id, data } = entry;
+    const { type } = data;
+
+    const { partId, chapterId, lessonId } = resolveIds(id, type);
+
+    if (type === 'tutorial') {
+      tutorialMetaData = data;
+
+      // default template if not specified
+      tutorialMetaData.template ??= 'default';
+      tutorialMetaData.i18n = Object.assign({ ...DEFAULT_LOCALIZATION }, tutorialMetaData.i18n);
+      tutorialMetaData.openInStackBlitz ??= true;
+
+      tutorial.logoLink = data.logoLink;
+    } else if (type === 'part') {
+      if (!partId) {
+        throw new Error('Part missing id');
+      }
+
+      tutorial.parts[partId] = {
+        id: partId,
+        order: -1,
+        data,
+        slug: getSlug(entry),
+        chapters: {},
+      };
+    } else if (type === 'chapter') {
+      if (!chapterId || !partId) {
+        throw new Error(`Part missing ids: [${partId || null}, ${chapterId || null}, ]`);
+      }
+
+      if (!tutorial.parts[partId]) {
+        throw new Error(`Could not find part '${partId}'`);
+      }
+
+      tutorial.parts[partId].chapters[chapterId] = {
+        id: chapterId,
+        order: -1,
+        data,
+        slug: getSlug(entry),
+      };
+    } else if (type === 'lesson') {
+      if (!lessonId) {
+        throw new Error('Lesson missing id');
+      }
+
+      const { Content } = await entry.render();
+
+      const lessonDir = path.dirname(entry.id);
+      const filesDir = path.join(lessonDir, '_files');
+      const solutionDir = path.join(lessonDir, '_solution');
+
+      const files = await getFilesRefList(filesDir);
+      const solution = await getFilesRefList(solutionDir);
+
+      const lesson: Lesson = {
+        data,
+        id: lessonId,
+        filepath: id,
+        order: -1,
+        Markdown: Content,
+        slug: getSlug(entry),
+        files,
+        solution,
+      };
+
+      if (partId) {
+        if (!tutorial.parts[partId]) {
+          throw new Error(`Could not find part '${partId}'`);
+        }
+
+        lesson.part = {
+          id: partId,
+          title: tutorial.parts[partId].data.title,
+        };
+      }
+
+      if (partId && chapterId) {
+        if (!tutorial.parts[partId].chapters[chapterId]) {
+          throw new Error(`Could not find chapter '${chapterId}'`);
+        }
+
+        lesson.chapter = {
+          id: chapterId,
+          title: tutorial.parts[partId].chapters[chapterId].data.title,
+        };
+      }
+
+      tutorial.lessons.push(lesson);
+    }
+  }
+
+  if (!tutorialMetaData) {
+    throw new Error(`Could not find tutorial 'meta.md' file`);
+  }
+
+  return { tutorial, tutorialMetaData };
 }
 
 function getOrder(
@@ -335,6 +395,55 @@ function getSlug(entry: CollectionEntryTutorial) {
   }
 
   return slug;
+}
+
+function resolveIds(
+  id: string,
+  type: CollectionEntryTutorial['data']['type'],
+): { partId?: string; chapterId?: string; lessonId?: string } {
+  const parts = id.split('/');
+
+  if (type === 'tutorial') {
+    return {};
+  }
+
+  if (type === 'part') {
+    return {
+      partId: parts[0],
+    };
+  }
+
+  if (type === 'chapter') {
+    return {
+      partId: parts[0],
+      chapterId: parts[1],
+    };
+  }
+
+  /**
+   * Supported schemes for lessons are are:
+   * - 'lesson-id/content.md'
+   * - 'part-id/lesson-id/content.md'
+   * - 'part-id/chapter-id/lesson-id/content.md'
+   */
+  if (parts.length === 2) {
+    return {
+      lessonId: parts[0],
+    };
+  }
+
+  if (parts.length === 3) {
+    return {
+      partId: parts[0],
+      lessonId: parts[1],
+    };
+  }
+
+  return {
+    partId: parts[0],
+    chapterId: parts[1],
+    lessonId: parts[2],
+  };
 }
 
 export interface CollectionEntryTutorial {

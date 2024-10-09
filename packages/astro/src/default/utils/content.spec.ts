@@ -129,11 +129,21 @@ test('lessons with identical names in different chapters', async () => {
   expect(lessons[0].data.focus).toBe('/first.js');
   expect(lessons[1].data.focus).toBe('/second.js');
 
-  expect(lessons[0].chapter.id).toBe('1-chapter');
-  expect(lessons[1].chapter.id).toBe('2-chapter');
+  expect(lessons[0].chapter?.id).toBe('1-chapter');
+  expect(lessons[1].chapter?.id).toBe('2-chapter');
 
-  expect(lessons[0].part.id).toBe('1-part');
-  expect(lessons[1].part.id).toBe('1-part');
+  expect(lessons[0].part?.id).toBe('1-part');
+  expect(lessons[1].part?.id).toBe('1-part');
+});
+
+test('single part and lesson, no chapter', async () => {
+  getCollection.mockReturnValueOnce([
+    { id: 'meta.md', ...tutorial },
+    { id: '1-part/meta.md', ...part },
+    { id: '1-part/1-lesson/content.md', ...lesson },
+  ]);
+
+  await getTutorial();
 });
 
 describe('metadata inheriting', () => {
@@ -433,7 +443,7 @@ describe('missing parts', () => {
     );
   });
 
-  test('throws when part not found', async () => {
+  test('throws when part not found for chapter', async () => {
     getCollection.mockReturnValueOnce([
       { id: 'meta.md', ...tutorial },
       { id: '2-part/meta.md', ...part },
@@ -453,6 +463,33 @@ describe('missing parts', () => {
     ]);
 
     await expect(getTutorial).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Could not find chapter '1-chapter']`);
+  });
+});
+
+describe('mixed hierarchy', () => {
+  test('throws when tutorial has parts and lessons in same level', async () => {
+    getCollection.mockReturnValueOnce([
+      { id: 'meta.md', ...tutorial },
+      { id: '1-part/meta.md', ...part },
+      { id: '1-lesson/content.md', ...lesson },
+    ]);
+
+    await expect(getTutorial).rejects.toThrowErrorMatchingInlineSnapshot(
+      `[Error: Cannot mix lessons and parts in a tutorial. Either remove the parts or move root level lessons into a part.]`,
+    );
+  });
+
+  test('throws when a part has chapters and lessons in same level', async () => {
+    getCollection.mockReturnValueOnce([
+      { id: 'meta.md', ...tutorial },
+      { id: '1-part/meta.md', ...part },
+      { id: '1-part/1-chapter/meta.md', ...chapter },
+      { id: '1-part/1-lesson/content.md', ...lesson },
+    ]);
+
+    await expect(getTutorial).rejects.toThrowErrorMatchingInlineSnapshot(
+      `[Error: Cannot mix lessons and chapters in a part. Either remove the chapter from 1-part or move the lessons into a chapter.]`,
+    );
   });
 });
 
