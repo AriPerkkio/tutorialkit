@@ -22,6 +22,9 @@ jobs:
           - os: windows-latest
             node_version: 20.13.1 # 20.14.0 keeps causing a native `node::SetCppgcReference+18123` error in Vitest
     steps:
+      - name: Debug
+        run: echo ${{ github.ref_name }}
+
       - name: Checkout
         uses: actions/checkout@v4
 
